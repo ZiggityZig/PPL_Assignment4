@@ -9,20 +9,33 @@ type PromisedStore<K, V> = {
 }
 
 
-// export function makePromisedStore<K, V>(): PromisedStore<K, V> {
-//     ???
-//     return {
-//         get(key: K) {
-//             ???
-//         },
-//         set(key: K, value: V) {
-//             ???
-//         },
-//         delete(key: K) {
-//             ???
-//         },
-//     }
-// }
+export function makePromisedStore<K, V>(): PromisedStore<K, V> {
+    const storeMap = new Map<K, V>();
+    return {
+        get(key: K) {
+            return new Promise<V>((resolve, reject) => {
+            const val: V|undefined = storeMap.get(key)
+            if(val === undefined)
+                reject(MISSING_KEY)
+            else
+                resolve(val)
+             })},
+        set(key: K, value: V) {
+            return new Promise <void>((resolve) =>{
+            storeMap.set(key, value)
+            resolve()
+            })
+        },
+        delete(key: K) {
+            return new Promise<void>((resolve, reject) =>{
+                if(!storeMap.delete(key))
+                    reject(MISSING_KEY)
+                else
+                    resolve()
+            } )
+        },
+    }
+}
 
 // export function getAll<K, V>(store: PromisedStore<K, V>, keys: K[]): ??? {
 //     ???
