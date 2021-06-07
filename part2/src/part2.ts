@@ -1,5 +1,7 @@
 /* 2.1 */
 
+import { forEach, keys, map } from "ramda";
+
 export const MISSING_KEY = '___MISSING___'
 
 type PromisedStore<K, V> = {
@@ -24,22 +26,20 @@ export function makePromisedStore<K, V>(): PromisedStore<K, V> {
             return new Promise <void>((resolve) =>{
             storeMap.set(key, value)
             resolve()
-            })
-        },
+            })},
         delete(key: K) {
             return new Promise<void>((resolve, reject) =>{
                 if(!storeMap.delete(key))
                     reject(MISSING_KEY)
                 else
                     resolve()
-            } )
-        },
+            })},
     }
 }
 
-// export function getAll<K, V>(store: PromisedStore<K, V>, keys: K[]): ??? {
-//     ???
-// }
+export function getAll<K, V>(store: PromisedStore<K, V>, keys: K[]): Promise<V[]> {
+    return Promise.all(map((key: K) => store.get(key), keys))
+}
 
 /* 2.2 */
 
