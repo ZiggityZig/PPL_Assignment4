@@ -43,11 +43,16 @@ export function getAll<K, V>(store: PromisedStore<K, V>, keys: K[]): Promise<V[]
 
 /* 2.2 */
 
-// ??? (you may want to add helper functions here)
-//
-// export function asycMemo<T, R>(f: (param: T) => R): (param: T) => Promise<R> {
-//     ???
-// }
+//??? (you may want to add helper functions here)
+
+export function asycMemo<T, R>(f: (param: T) => R): (param: T) => Promise<R> {
+    const store: PromisedStore<T, R> = makePromisedStore<T, R>()
+    return async (param: T): Promise<R> => {
+      const value = store.get(param)
+      .catch(async (msg) => await store.set(param, f(param)).then((val) => store.get(param)))
+      return value
+    }
+}
 
 /* 2.3 */
 
