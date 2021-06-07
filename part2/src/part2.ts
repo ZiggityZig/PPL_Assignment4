@@ -48,17 +48,20 @@ export function getAll<K, V>(store: PromisedStore<K, V>, keys: K[]): Promise<V[]
 export function asycMemo<T, R>(f: (param: T) => R): (param: T) => Promise<R> {
     const store: PromisedStore<T, R> = makePromisedStore<T, R>()
     return async (param: T): Promise<R> => {
-      const value = store.get(param)
-      .catch(async (msg) => await store.set(param, f(param)).then((val) => store.get(param)))
-      return value
+      try {
+            await store.get(param)
+      } catch(msg) {
+          await store.set(param, f(param))
+      }
+      return await store.get(param)
     }
 }
 
 /* 2.3 */
 
-// export function lazyFilter<T>(genFn: () => Generator<T>, filterFn: ???): ??? {
-//     ???
-// }
+export function lazyFilter<T>(genFn: () => Generator<T>, filterFn: ???): ??? {
+    ???
+}
 
 // export function lazyMap<T, R>(genFn: () => Generator<T>, mapFn: ???): ??? {
 //     ???
