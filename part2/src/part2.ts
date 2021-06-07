@@ -59,13 +59,27 @@ export function asycMemo<T, R>(f: (param: T) => R): (param: T) => Promise<R> {
 
 /* 2.3 */
 
-export function lazyFilter<T>(genFn: () => Generator<T>, filterFn: ???): ??? {
-    ???
+export function lazyFilter<T>(genFn: () => Generator<T>, filterFn: (param: T) => boolean): any {
+    const gen: Generator<T> = genFn()
+     function* newgen () {
+        while(true) {
+            var value: T = gen.next().value
+            if(filterFn(value)){
+                yield value
+            }    
+        }
+    }
+    return newgen
 }
 
-// export function lazyMap<T, R>(genFn: () => Generator<T>, mapFn: ???): ??? {
-//     ???
-// }
+export function lazyMap<T, R>(genFn: () => Generator<T>, mapFn: (param: T) => any): any {
+    const gen: Generator<T> = genFn()
+    function* newgen () {
+        yield (mapFn(gen.next().value))
+           }    
+   return newgen
+}
+
 
 /* 2.4 */
 // you can use 'any' in this question
