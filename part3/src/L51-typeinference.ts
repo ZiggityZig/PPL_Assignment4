@@ -1,5 +1,5 @@
 // L5-typeinference
-
+import{map} from "ramda";
 import * as R from "ramda";
 import * as A from "./L51-ast";
 import * as TC from "./L51-typecheck";
@@ -9,6 +9,8 @@ import * as T from "./TExp51";
 import { allT, first, rest, isEmpty } from "../shared/list";
 import { isNumber, isString } from '../shared/type-predicates';
 import { Result, makeFailure, makeOk, bind, safe2, zipWithResult, mapResult } from "../shared/result";
+import { env } from "process";
+import { Env } from "../imp/L5-env";
 
 // Purpose: Make type expressions equivalent by deriving a unifier
 // Return an error if the types are not unifiable.
@@ -80,7 +82,8 @@ const checkTVarEqualTypes = (tvar: T.TVar, te: T.TExp, exp: A.Exp): Result<true>
 // Throws error if a circular reference is found.
 // Exp is only passed for documentation purposes.
 // Pre-conditions: Tvar is not bound
-const checkNoOccurrence = (tvar: T.TVar, te: T.TExp, exp: A.Exp): Result<true> => {
+const checkNoOccurrence = (tvar: T.TVar, te: T.TExp, exp: A.Exp): Result<true> => 
+{
     const checkList = (tes: T.TExp[]): Result<true> =>
         bind(mapResult(loop, tes), _ => makeOk(true));
 
@@ -102,8 +105,10 @@ const checkNoOccurrence = (tvar: T.TVar, te: T.TExp, exp: A.Exp): Result<true> =
 // so that the user defined types are known to the type inference system.
 // For each class (class : typename ...) add a pair <class.typename classTExp> to TEnv
 export const makeTEnvFromClasses = (parsed: A.Parsed): E.TEnv => {
-    // TODO makeTEnvFromClasses
-    return E.makeEmptyTEnv();
+    const classExps: A.ClassExp[] = A.parsedToClassExps(parsed);
+    const typeName : string[] = classExps.map(vd=>vd.typeName.var)
+    const clTexp: T.ClassTExp[] = map(A.classExpToClassTExp , classExps);
+    return E.makeExtendTEnv(typeName,clTexp,E.makeEmptyTEnv());
 }
 
 // Purpose: Compute the type of a concrete expression
@@ -240,8 +245,15 @@ export const typeofLetrec = (exp: A.LetrecExp, tenv: E.TEnv): Result<T.TExp> => 
 //   (define (var : texp) val)
 // TODO - write the typing rule for define-exp
 export const typeofDefine = (exp: A.DefineExp, tenv: E.TEnv): Result<T.VoidTExp> => {
-    return makeFailure('TODO typeofDefine');
+
+    const expType = typeofExp(exp.val,tenv);
+     if(expType.tag == "Failure")
+      return (makeFailure("no type"));
+      else 
+      return   bind(checkEqualType(expType.value,exp.var.texp,exp),()=>makeOk(T.makeVoidTExp()));
 };
+
+
 
 // Purpose: compute the type of a program
 // Typing rule:
@@ -251,24 +263,59 @@ export const typeofProgram = (exp: A.Program, tenv: E.TEnv): Result<T.TExp> =>
     isEmpty(exp.exps) ? makeFailure("Empty program") :
     typeofProgramExps(first(exp.exps), rest(exp.exps), tenv);
 
-const typeofProgramExps = (exp: A.Exp, exps: A.Exp[], tenv: E.TEnv): Result<T.TExp> => 
-    makeFailure('TODO typeofProgramExps');
+const typeofProgramExps = (exp: A.Exp, exps: A.Exp[], tenv: E.TEnv): Result<T.TExp> => {
+    if(A.isDefineExp(exp))
+    {
+    const extEnv = E.makeExtendTEnv([exp.var.var],[exp.var.texp] , tenv); 
+    tenv = extEnv;
+    }
+    if( isEmpty(exps) )
+    {
+    return typeofExp(exp, tenv)
+    }
+    else
+    return bind(typeofExp(exp, tenv), _ => typeofProgramExps(first(exps) , rest(exps), tenv));
+};
+
+
+
 
 
 // Purpose: compute the type of a literal expression
 //      - Only need to cover the case of Symbol and Pair
 //      - for a symbol - record the value of the symbol in the SymbolTExp
 //        so that precise type checking can be made on ground symbol values.
-export const typeofLit = (exp: A.LitExp): Result<T.TExp> =>
-    makeFailure(`TODO typeofLit`);
+export const typeofLit = (exp: A.LitExp): Result<T.TExp> =>{
 
+    if(V.isSymbolSExp(exp.val))
+    {
+    return makeOk(T.makeSymbolTExp());
+    }
+    else
+    {
+    return makeOk(T.makePairTExp())
+    }
+};
 // Purpose: compute the type of a set! expression
 // Typing rule:
 //   (set! var val)
 // TODO - write the typing rule for set-exp
 export const typeofSet = (exp: A.SetExp, tenv: E.TEnv): Result<T.VoidTExp> => {
-    return makeFailure('TODO typeofSet');
+    const oldtype = typeofExp(exp.var,tenv) 
+    const toSetType = typeofExp(exp.val,tenv)
+    if(toSetType.tag == "Ok" && oldtype.tag == "Ok")
+    {
+            if(T.equivalentTEs(oldtype.value,toSetType.value))
+            {
+                return makeOk(T.makeVoidTExp());
+            }
+            else
+            return makeFailure("arg to set is of wrong type")
+    }
+    else
+        return makeFailure("arg to set is of wrong type")
 };
+
 
 // Purpose: compute the type of a class-exp(type fields methods)
 // Typing rule:
@@ -278,5 +325,17 @@ export const typeofSet = (exp: A.SetExp, tenv: E.TEnv): Result<T.VoidTExp> => {
 //      type<method_k>(class-tenv) = mk
 // Then type<class(type fields methods)>(tend) = = [t1 * ... * tn -> type]
 export const typeofClass = (exp: A.ClassExp, tenv: E.TEnv): Result<T.TExp> => {
-    return makeFailure("TODO typeofClass");
-};
+   
+  
+    const vals: A.CExp[] = R.map((binding: A.Binding) => binding.val, exp.methods);
+    const varTy: T.TExp[] = R.map((binding: A.Binding) => binding.var.texp, exp.methods);
+    const fTy: T.TExp[] = R.map((vaRDecl: A.VarDecl) => vaRDecl.texp, exp.fields);
+    const envTexps: T.TExp[] = R.map((varDecl: A.VarDecl) => varDecl.texp, exp.fields);
+    const envVars: string[] = R.map((varDecl: A.VarDecl) => varDecl.var, exp.fields);
+    const newEnv: E.ExtendTEnv = E.makeExtendTEnv(envVars, envTexps, tenv);
+    const MethodsTy: Result<T.TExp[]> = mapResult((val: A.CExp) => typeofExp(val, newEnv), vals);
+    const temp: Result<true> = bind(MethodsTy, (types: T.TExp[]) => checkEqualTypes(varTy, types, exp));
+    const vars: string[] = R.map((binding: A.Binding) => binding.var.var, exp.methods);
+    const classType: T.ClassTExp = T.makeClassTExp(exp.typeName.var, R.zipWith((a: string, b: T.TExp) => [a, b], vars, varTy));
+    return bind(temp, _ => makeOk(T.makeProcTExp(fTy, classType)));
+}
