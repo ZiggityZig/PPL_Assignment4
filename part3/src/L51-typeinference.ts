@@ -289,7 +289,7 @@ export const typeofLit = (exp: A.LitExp): Result<T.TExp> =>{
 
     if(V.isSymbolSExp(exp.val))
     {
-    return makeOk(T.makeSymbolTExp());
+    return makeOk(T.makeSymbolTExp(exp.val));
     }
     else
     {
@@ -326,7 +326,6 @@ export const typeofSet = (exp: A.SetExp, tenv: E.TEnv): Result<T.VoidTExp> => {
 // Then type<class(type fields methods)>(tend) = = [t1 * ... * tn -> type]
 export const typeofClass = (exp: A.ClassExp, tenv: E.TEnv): Result<T.TExp> => {
    
-  
     const vals: A.CExp[] = R.map((binding: A.Binding) => binding.val, exp.methods);
     const varTy: T.TExp[] = R.map((binding: A.Binding) => binding.var.texp, exp.methods);
     const fTy: T.TExp[] = R.map((vaRDecl: A.VarDecl) => vaRDecl.texp, exp.fields);
@@ -335,7 +334,6 @@ export const typeofClass = (exp: A.ClassExp, tenv: E.TEnv): Result<T.TExp> => {
     const newEnv: E.ExtendTEnv = E.makeExtendTEnv(envVars, envTexps, tenv);
     const MethodsTy: Result<T.TExp[]> = mapResult((val: A.CExp) => typeofExp(val, newEnv), vals);
     const temp: Result<true> = bind(MethodsTy, (types: T.TExp[]) => checkEqualTypes(varTy, types, exp));
-    const vars: string[] = R.map((binding: A.Binding) => binding.var.var, exp.methods);
-    const classType: T.ClassTExp = T.makeClassTExp(exp.typeName.var, R.zipWith((a: string, b: T.TExp) => [a, b], vars, varTy));
+    const classType: T.ClassTExp = A.classExpToClassTExp(exp);
     return bind(temp, _ => makeOk(T.makeProcTExp(fTy, classType)));
 }
