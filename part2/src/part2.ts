@@ -59,7 +59,7 @@ export function asycMemo<T, R>(f: (param: T) => R): (param: T) => Promise<R> {
 
 /* 2.3 */
 
-export function lazyFilter<T>(genFn: () => Generator<T>, filterFn: (param: T) => boolean): any {
+export function lazyFilter<T>(genFn: () => Generator<T>, filterFn: (param: T) => boolean): () => Generator<T> {
     const gen: Generator<T> = genFn()
      function* newgen () {
         while(true) {
@@ -72,7 +72,7 @@ export function lazyFilter<T>(genFn: () => Generator<T>, filterFn: (param: T) =>
     return newgen
 }
 
-export function lazyMap<T, R>(genFn: () => Generator<T>, mapFn: (param: T) => any): any {
+export function lazyMap<T, R>(genFn: () => Generator<T>, mapFn: (param: T) => any): () => Generator<T> {
     const gen: Generator<T> = genFn()
     function* newgen () {
         yield (mapFn(gen.next().value))
@@ -82,8 +82,6 @@ export function lazyMap<T, R>(genFn: () => Generator<T>, mapFn: (param: T) => an
 
 
 /* 2.4 */
-// you can use 'any' in this question
-
-// export async function asyncWaterfallWithRetry(fns: [() => Promise<any>, ...(???)[]]): Promise<any> {
-//     ???
-// }
+export async function asyncWaterfallWithRetry(fns: [() => Promise<any>, ...(???)[]]): Promise<any> {
+    fns.forEach()
+}
